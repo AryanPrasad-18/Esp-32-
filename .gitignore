@@ -1,69 +1,139 @@
-# Prerequisites
-*.d
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+#include <Arduino.h>
 
-# Precompiled Headers
-*.gch
-*.pch
+// ---------- PIN DEFINITIONS ----------
+#define SOLAR_PIN 34
+#define BATTERY_PIN 35
 
-# Linker files
-*.ilk
+#define EV1_SOC_PIN 32
+#define EV2_SOC_PIN 33
+#define EV3_SOC_PIN 39
 
-# Debugger Files
-*.pdb
+#define EV1_LED 25
+#define EV2_LED 26
+#define EV3_LED 27
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-*.so.*
+#define SOLAR_LED 14
+#define BATTERY_LED 12
+#define GRID_LED 13
 
+// ---------- SETTINGS ----------
+#define SOLAR_MIN 1000
+#define BATTERY_MIN 1500
 
-# Fortran module files
-*.mod
-*.smod
+void setup() {
+  Serial.begin(115200);
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+  pinMode(EV1_LED, OUTPUT);
+  pinMode(EV2_LED, OUTPUT);
+  pinMode(EV3_LED, OUTPUT);
 
-# Executables
-*.exe
-*.out
-*.app
+  pinMode(SOLAR_LED, OUTPUT);
+  pinMode(BATTERY_LED, OUTPUT);
+  pinMode(GRID_LED, OUTPUT);
 
-# Build directories
-build/
-Build/
-build-*/
+  Serial.println("SMART EV CHARGING SYSTEM");
+  Serial.println("-------------------------");
+}
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+void loop() {
 
-# Temporary files
-*.tmp
-*.log
-*.bak
-*.swp
+  // Read sensor values
+  int solarValue = analogRead(SOLAR_PIN);
+  int batteryValue = analogRead(BATTERY_PIN);
 
-# vcpkg
-vcpkg_installed/
+  int ev1 = analogRead(EV1_SOC_PIN);
+  int ev2 = analogRead(EV2_SOC_PIN);
+  int ev3 = analogRead(EV3_SOC_PIN);
 
-# debug information files
-*.dwo
+  Serial.println();
+  Serial.println("Checking energy availability...");
 
-# test output & cache
-Testing/
-.cache/
+  Serial.print("Solar: ");
+  Serial.println(solarValue);
+
+  Serial.print("Battery: ");
+  Serial.println(batteryValue);
+
+  // Turn everything OFF first
+  digitalWrite(EV1_LED, LOW);
+  digitalWrite(EV2_LED, LOW);
+  digitalWrite(EV3_LED, LOW);
+
+  digitalWrite(SOLAR_LED, LOW);
+  digitalWrite(BATTERY_LED, LOW);
+  digitalWrite(GRID_LED, LOW);
+
+  // ------------------------------------------------
+  // DECISION 1: SOLAR AVAILABLE
+  // ------------------------------------------------
+
+  if (solarValue >= SOLAR_MIN) {
+
+    Serial.println("SOURCE: SOLAR");
+    digitalWrite(SOLAR_LED, HIGH);
+
+    // Give priority to EV with lowest battery level
+    if (ev1 <= ev2 && ev1 <= ev3) {
+      digitalWrite(EV1_LED, HIGH);
+      Serial.println("EV1 is receiving solar power.");
+    }
+    else if (ev2 <= ev1 && ev2 <= ev3) {
+      digitalWrite(EV2_LED, HIGH);
+      Serial.println("EV2 is receiving solar power.");
+    }
+    else {
+      digitalWrite(EV3_LED, HIGH);
+      Serial.println("EV3 is receiving solar power.");
+    }
+  }
+
+  // ------------------------------------------------
+  // DECISION 2: SOLAR LOW BUT BATTERY AVAILABLE
+  // ------------------------------------------------
+
+  else if (batteryValue >= BATTERY_MIN) {
+
+    Serial.println("SOURCE: BATTERY");
+    digitalWrite(BATTERY_LED, HIGH);
+
+    if (ev1 <= ev2 && ev1 <= ev3) {
+      digitalWrite(EV1_LED, HIGH);
+      Serial.println("EV1 is receiving battery power.");
+    }
+    else if (ev2 <= ev1 && ev2 <= ev3) {
+      digitalWrite(EV2_LED, HIGH);
+      Serial.println("EV2 is receiving battery power.");
+    }
+    else {
+      digitalWrite(EV3_LED, HIGH);
+      Serial.println("EV3 is receiving battery power.");
+    }
+  }
+
+  // ------------------------------------------------
+  // DECISION 3: SOLAR AND BATTERY LOW
+  // ------------------------------------------------
+
+  else {
+
+    Serial.println("SOURCE: GRID");
+    digitalWrite(GRID_LED, HIGH);
+
+    // Grid backup
+    if (ev1 <= ev2 && ev1 <= ev3) {
+      digitalWrite(EV1_LED, HIGH);
+      Serial.println("EV1 is receiving grid power.");
+    }
+    else if (ev2 <= ev1 && ev2 <= ev3) {
+      digitalWrite(EV2_LED, HIGH);
+      Serial.println("EV2 is receiving grid power.");
+    }
+    else {
+      digitalWrite(EV3_LED, HIGH);
+      Serial.println("EV3 is receiving grid power.");
+    }
+  }
+
+  delay(3000);
+}
